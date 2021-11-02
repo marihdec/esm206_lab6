@@ -7,24 +7,124 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(palmerpenguins)
+library(broom)
+library(equatiomatic)
 ```
 
-## R Markdown
+## Rank based test example
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Mann-Whitney U (non-parametric alternative to an unpaired 2-sample t-test)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+H0: Samples are drawn from populations with equal ranks (or medians)
+HA: Samples are drawn from populations where ranks (or medians) are not equal
 
-```{r cars}
-summary(cars)
+### Create samples
+
+'set.seed()' to create "pseudorandom, but reproducible samples"
+
+```{r}
+set.seed(1414) # so we all have the same set in the whole class
+gp_1 <- sample.int(20, size = 15, replace = TRUE) # random sample of integers from 1-20, 15 items, #s repeatable
+
+set.seed(1424)
+gp_2 <- sample.int(30, size = 15, replace = TRUE)
 ```
 
-## Including Plots
+Take a quick look at the distributions using the 'hist()' function
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+hist(gp_1)
+hist(gp_2)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Try a t-test so we can compare the results:
+
+```{r}
+ttest <- t.test(gp_1, gp_2) # unpaired 2-sample t-test
+
+# if these data were paired, I can just add the argument 'paired = TRUE' within the t.test() function
+```
+
+This p-value means that there is a `r round(ttest$p.value, 2)` probability of finding samples with means at least this different if they were drawn from populations with the same mean
+
+[A more comprehensive explanation of differences between groups...actual means, data spread, effect size]...there is no significant different (t(df) = t-statistic value, p = ).
+
+### Mann-Whitney U rank based test
+
+We use the 'wilcox.test()' function to perform a 2-sample rank based test.
+
+```{r}
+mwu <- wilcox.test(gp_1, gp_2) #unpaired rank based test
+```
+
+This p-value means that there is `r round(mwu$p.value, 2) * 100`% probability of finding samples with median at least this different if they were drawn from populations with the same median.
+
+No significant difference in medians (Mann-Whitney U; U = `r mwu$statistic`, p = `r round(mwu$p.value, 2)`)
+
+## Simple linear regression
+
+Two *continuous quantitative* variables that you are trying to understand the relationship between, and you think that a linear relationship makes sense
+
+Use the 'penguins' data from {palmerpenguins}, exploring flipper length (x) versus body mass (y)
+
+```{r}
+# use view(penguins) to look at the data
+# make an exploratory scatter plot of penguin flipper length (x-axis) vs body mass (y-axis)
+
+ggplot(data = penguins, aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+# equation of regression line: y = (B_1)x + (B_0) + E
+
+# body mass (g) = (B_1)(flipper length (mm)) + (B_0)
+```
+
+### Find the model estimates (coefficients)
+
+Use the 'lm()' function for a linear model
+
+body_mass_g ~ (~ = as a function of)
+
+```{r}
+penguin_lm <- lm(body_mass_g ~ flipper_length_mm, data = penguins)
+
+# body mass (g) = 49.69(flipper length (mm)) - 5780.08
+# units: [g] = [g/mm] - [g] so 49.69  must be in [g/mm]
+```
+
+Model coefficients: `r penguin_lm$coefficients`
+
+use indexing to pull a single coefficient value
+- flipper length coefficient: `r penguin_lm$coefficients[2]`
+
+### Use 'broom::tidy()' to get a tidy output from lm()
+
+```{r}
+penguin_lm_tidy <- tidy(penguin_lm)
+
+penguin_lm_tidy # not finalized
+```
+
+### Use 'broom::glane()' to get output of model fit & statistical significance
+
+```{r}
+penguin_lm_glance <- glance(penguin_lm)
+
+penguin_lm_glance
+```
+
+### Use 'equatiomatic::extract_eq()' to return model in LaTex
+
+```{r}
+extract_eq(model = penguin_lm, use_coefs = TRUE)
+```
+
+### Use 'plot()' to automatically produce diagnostic plot
+
+```{r}
+plot(penguin_lm)
+```
+
